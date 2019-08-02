@@ -1,18 +1,22 @@
-def filter_source(source, get_import=True, get_funcdef=True):
+def filter_source(source, *, get_with=True, get_import=True, get_funcdef=True, comment_out_prefix='## >> '):
     """
     ソースコードを一部条件に従って抜き出す
     """
-    result = []
+
+    lines = []
     for line in source.split('\n'):
-        if line == '':
-            result.append(line)
-        elif line[0:7] == 'import ':
-            if get_import:
-                result.append(line)
-        elif line[0:5] == 'from ':
-            if get_import:
-                result.append(line)
-        elif line[0:4] == 'def ' or line[0:6] == 'class ' or line[0] == ' ' or line[0] == '\t':
-            if get_funcdef:
-                result.append(line)
-    return '\n'.join(result)
+        is_kept = None
+        if line == '' or line[0] == '#':
+            is_kept = True
+        elif line.startswith('with '):
+            is_kept = get_with
+        elif line.startswith('import ') or line.startswith('from '):
+            is_kept = get_import
+        elif line.startswith('def ') or line.startswith('class ') or line[0] in ' \t':
+            is_kept = get_funcdef
+        else:
+            is_kept = False
+
+        lines.append(('' if is_kept else comment_out_prefix) + line)
+
+    return '\n'.join(lines)
