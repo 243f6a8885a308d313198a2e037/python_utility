@@ -1,6 +1,6 @@
 import os
 
-def assure_directory_existence(dir_path):
+def assure_directory_existence(dir_path: str):
     """ ディレクトリの存在を保証する """
     if os.path.isdir(dir_path):
         return
@@ -8,11 +8,12 @@ def assure_directory_existence(dir_path):
         raise FileExistsError(dir_path)
     os.mkdir(dir_path)
 
-def assure_file_existence(file_path, contents='', *, encoding=None):
+def assure_file_existence(file_path: str, encoding: str, *, default_contents: str = None):
     """ ファイルの存在を保証する """
     if os.path.isfile(file_path):
         return
     if os.path.exists(file_path):
         raise FileExistsError(file_path)
-    with open(file_path, 'w', encoding=encoding) as f:
-        f.write(contents)
+    if default_contents is not None:
+        with open(file_path, 'w', encoding=encoding) as f:
+            f.write(default_contents)
