@@ -1,4 +1,4 @@
-def filter_source(source, *, get_with=True, get_import=True, get_funcdef=True, comment_out_prefix='## >> '):
+def filter_source(source, *, get_if=True, get_with=True, get_import=True, get_funcdef=True, comment_out_prefix='## >> '):
     """
     ソースコードを一部条件に従って抜き出す
     """
@@ -8,6 +8,8 @@ def filter_source(source, *, get_with=True, get_import=True, get_funcdef=True, c
         is_kept = None
         if line == '' or line[0] == '#':
             is_kept = True
+        elif line.startswith('if '):
+            is_kept = get_if
         elif line.startswith('with '):
             is_kept = get_with
         elif line.startswith('import ') or line.startswith('from '):
