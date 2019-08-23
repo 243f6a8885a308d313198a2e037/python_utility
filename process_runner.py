@@ -33,7 +33,7 @@ class ProcessRunner:
                 stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True, **keyword_dic)
         except Exception as e:
             raise e
-        if result.returncode == 128 + 9:
+        if result.returncode == -9:
             # SIGKILL (almost certainly by timeout)
             raise SubprocessTimeoutError(result)
         if result.returncode != 0:
