@@ -116,7 +116,8 @@ def trace_func_enter_leave(error_manager: ErrorManager):
     def deco_func(func: callable):
         def wrapper(*args, **kwargs):
             error_manager.add_trace(f'function {func.__name__} started.')
-            func(*args, **kwargs)
+            result = func(*args, **kwargs)
             error_manager.add_trace(f'function {func.__name__} finished.')
+            return result
         return wrapper
     return deco_func
