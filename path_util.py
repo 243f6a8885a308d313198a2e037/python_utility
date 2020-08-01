@@ -17,3 +17,8 @@ def assure_file_existence(file_path: str, encoding: str, *, default_content: str
     if default_content is not None:
         with open(file_path, 'w', encoding=encoding) as f:
             f.write(default_content)
+
+def assure_directory_path_existence(dir_path: tuple):
+    """ ディレクトリ パスの存在を保証する """
+    for depth in range(len(dir_path)):
+        assure_directory_existence(os.path.join(*(dir_path[:1+depth])))
