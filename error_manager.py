@@ -1,11 +1,13 @@
-import os
-import sys
-import enum
-import datetime
-import traceback
 import collections
 import dataclasses
-from typing import Tuple, List, Optional
+import datetime
+import enum
+import functools
+import io
+import os
+import sys
+import traceback
+from typing import Tuple, List, Optional, Callable
 
 
 class ErrorLevel(enum.Enum):
@@ -14,6 +16,7 @@ class ErrorLevel(enum.Enum):
     WARNING = 4
     INFO = 8
     TRACE = 16
+
 
 @dataclasses.dataclass
 class ErrorInstance:
@@ -27,19 +30,28 @@ class ErrorInstance:
 
     def __str__(self):
         stack_trace = [f'<file {st.filename}, line {st.lineno} in {st.name}>' for st in self.stack_trace]
-        return f"[{self.error_id}] {self.datetime_utc.isoformat()} <{self.error_level}> {self.direct_causes} {repr(self.message)} {repr(self.kwargs)} {repr(stack_trace)}"
+        return ' '.join((
+            f'[{self.error_id}]',
+            str(self.datetime_utc.isoformat()),
+            f'<{self.error_level}>',
+            str(self.direct_causes),
+            repr(self.message),
+            repr(self.kwargs),
+            repr(stack_trace),
+        ))
+
 
 class ErrorManager:
     def __init__(self, name, logpath: Optional[os.PathLike] = None):
         self.name = name
-        self.errors = []
-        self.logfile = None
+        self.errors: List[ErrorInstance] = []
+        self.logfile: Optional[io.TextIOWrapper] = None
         if logpath is not None:
             self.set_logpath(logpath)
-        self.level_statistics = collections.Counter()
+        self.level_statistics: collections.Counter = collections.Counter()
 
     def set_logpath(self, logpath: os.PathLike):
-        if getattr(self, 'logfile') is not None:
+        if self.logfile is not None:
             self.logfile.close()
         self.logpath = logpath
         self.logfile = open(self.logpath, 'w', encoding='utf_8')
@@ -50,20 +62,18 @@ class ErrorManager:
         if getattr(self, 'logfile') is None:
             raise Exception('ERROR: ErrorManager: `self.logfile` is None. abort.')
 
-    def is_critical_happened(self):
+    def is_critical_happened(self) -> bool:
         return self.level_statistics[ErrorLevel.CRITICAL] > 0
 
-    def is_error_happened(self):
+    def is_error_happened(self) -> bool:
         return self.level_statistics[ErrorLevel.ERROR] > 0
 
-    def is_error_or_worse_happened(self):
+    def is_error_or_worse_happened(self) -> bool:
         return self.is_error_happened() or self.is_critical_happened()
 
     def add_message(
-        self,
-        error_level: ErrorLevel, message: str, direct_causes: Tuple[int, ...] = (), *,
-        ignore_traces: Optional[int] = 1, **kwargs):
-
+            self, error_level: ErrorLevel, message: str, direct_causes: Tuple[int, ...] = (), /, *,
+            ignore_traces: int = 1, **kwargs):
         self.check_is_ready()
         datetime_utc = datetime.datetime.utcnow()
         stack_trace = traceback.extract_stack()[:-ignore_traces]
@@ -71,7 +81,8 @@ class ErrorManager:
         error = ErrorInstance(error_id, datetime_utc, error_level, direct_causes, message, stack_trace, kwargs)
         self.errors.append(error)
         self.level_statistics[error_level] += 1
-        self.logfile.write(str(error) + '\n')
+        if self.logfile is not None:
+            self.logfile.write(str(error) + '\n')
         return error_id
 
     def add_critical(self, message: str, direct_causes: Tuple[int, ...] = (), **kwargs):
@@ -91,9 +102,7 @@ class ErrorManager:
         return self.add_message(ErrorLevel.TRACE, message, direct_causes, ignore_traces=2, **kwargs)
 
     def add_exception(
-        self,
-        error_level: ErrorLevel, exc: Exception, **kwargs):
-
+            self, error_level: ErrorLevel, exc: Exception, **kwargs):
         self.check_is_ready()
         datetime_utc = datetime.datetime.utcnow()
         message = traceback.format_exc().splitlines()[-1]
@@ -102,7 +111,8 @@ class ErrorManager:
         error = ErrorInstance(error_id, datetime_utc, error_level, (), message, stack_trace, kwargs)
         self.errors.append(error)
         self.level_statistics[error_level] += 1
-        self.logfile.write(str(error) + '\n')
+        if self.logfile is not None:
+            self.logfile.write(str(error) + '\n')
         return error_id
 
     def add_critical_exception(self, exc: Exception, **kwargs):
@@ -112,8 +122,10 @@ class ErrorManager:
     def add_error_exception(self, exc: Exception, **kwargs):
         return self.add_exception(ErrorLevel.ERROR, exc, **kwargs)
 
+
 def trace_func_enter_leave(error_manager: ErrorManager):
-    def deco_func(func: callable):
+    def deco_func(func: Callable):
+        @functools.wraps(func)
         def wrapper(*args, **kwargs):
             error_manager.add_trace(f'function {func.__name__} started.')
             result = func(*args, **kwargs)
